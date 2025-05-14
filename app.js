@@ -7,8 +7,12 @@ const app = express();
 app.use(bodyParser.json());
 
 // Routes
+// auth routes
 const authRoutes = require('./routes/authRoutes');
 app.use('/auth', authRoutes);
+// activity routes
+const activityRoutes = require('./routes/activityRoutes');
+app.use('/activity', activityRoutes);
 
 // Test route
 app.get('/', (req, res) => {
