@@ -41,7 +41,7 @@ const register = async (req, res) => {
 
     // Insert new user into the database
     const result = await queryDb(
-      'INSERT INTO users (email, student_id, password, name, year, faculty, major) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO users (email, studentId, password, name, year, faculty, major) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [email, studentId, hashedPassword, name, year, faculty, major]
     );
 
