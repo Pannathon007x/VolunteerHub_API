@@ -29,46 +29,70 @@ const createActivity = async (req, res) => {
     const {
         title,
         description,
-        category,       // ใช้เป็น activity_type_id
-        startDate,
-        endDate,
+        activity_type_id,
+        start_datetime,
+        end_datetime,
         location,
-        maxParticipants,
-        hourValue,
-        creatorId
+        max_participants,
+        hour_value,
+        creator_id
     } = req.body;
 
     // Validation
-    if (!title || !description || !category || !startDate || !endDate || !location || !maxParticipants || !hourValue || !creatorId) {
+    if (
+        !title ||
+        !description ||
+        !activity_type_id ||
+        !start_datetime ||
+        !end_datetime ||
+        !location ||
+        !max_participants ||
+        !hour_value ||
+        !creator_id
+    ) {
         return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
     }
 
     try {
         const result = await queryDb(
             `INSERT INTO activities 
-            (title, description, activity_type_id, start_datetime, end_datetime, location, max_participants, hour_value, creator_id, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description, category, startDate, endDate, location, maxParticipants, hourValue, creatorId]
-        );
-
-        res.status(201).json({
-            message: 'สร้างกิจกรรมสำเร็จ',
-            activity: {
-                id: result.insertId,    // ได้ id จาก database จริง
+            (title, description, activity_type_id, start_datetime, end_datetime, location, max_participants, hour_value, creator_id, status, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
                 title,
                 description,
-                activity_type_id: category,
-                start_datetime: startDate,
-                end_datetime: endDate,
+                activity_type_id,
+                start_datetime,
+                end_datetime,
                 location,
-                max_participants: maxParticipants,
-                hour_value: hourValue,
-                creator_id: creatorId
+                max_participants,
+                hour_value,
+                creator_id,
+                'pending'   // fix status เป็น pending
+            ]
+        );
+
+        return res.status(201).json({
+            message: 'สร้างกิจกรรมสำเร็จ',
+            activity: {
+                id: result.insertId,
+                title,
+                description,
+                activity_type_id,
+                start_datetime,
+                end_datetime,
+                location,
+                max_participants,
+                hour_value,
+                creator_id,
+                status: 'pending',
+                created_at: new Date(),
+                updated_at: new Date()
             }
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างกิจกรรม', error: error.message });
+        return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างกิจกรรม', error: error.message });
     }
 };
 
