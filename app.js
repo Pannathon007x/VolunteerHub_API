@@ -1,7 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const db = require('./config/db'); // Import database connection
 
 const app = express();
 
@@ -17,12 +16,8 @@ app.use('/auth', authRoutes);
 const activityRoutes = require('./routes/activityRoutes');
 app.use('/activity', activityRoutes);
 
-
-// Test route
-app.get('/', (req, res) => {
-    res.send('Hello World');
-});
-
+const userRoutes = require('./routes/userRoutes');
+app.use('/user', userRoutes);
 
 const PORT = 3001;
 app.listen(PORT, () => {
