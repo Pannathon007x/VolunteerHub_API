@@ -38,15 +38,15 @@ const register = async (req, res) => {
 
     // Check total user count to decide role
     const totalUsers = await queryDb('SELECT COUNT(*) AS count FROM users');
-    const role = totalUsers[0].count === 0 ? 'admin' : 'user';
+    const role = totalUsers[0].count === 0 ? 'admin' : 'student';
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert new user into the database with role
     const result = await queryDb(
-      'INSERT INTO users (student_id, password, first_name, last_name, email, faculty, department) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [student_id, password, first_name, last_name, email, faculty, department]
+      'INSERT INTO users (student_id, password, first_name, last_name, email, faculty, department, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [student_id, hashedPassword, first_name, last_name, email, faculty, department, role]
     );
 
     res.status(201).json({ message: 'User registered successfully', role });
