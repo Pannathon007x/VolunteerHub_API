@@ -41,7 +41,6 @@ const getParticipants = (req, res) => {
     });
 };
 
-
 // User join activity
 const joinActivity = async (req, res) => {
     const { id } = req.params;
