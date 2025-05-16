@@ -91,29 +91,33 @@ const getActivityById = async (req, res) => {
     }
 };
 
-    // Get activity by id and status completed
-const getActivityByCompleted = async (req, res) => {
+const completeActivity = async (req, res) => {
+  const { id: activityId } = req.params;
+
   try {
-    const activities = await queryDb(
-      'SELECT * FROM activities WHERE status = ?',
-      ['completed']
-    );
+    // 1. อัปเดตสถานะกิจกรรมเป็น completed
+    await queryDb(`UPDATE activities SET status = 'completed' WHERE id = ?`, [activityId]);
 
-    if (activities.length === 0) {
-      return res.status(404).json({ message: 'ไม่พบกิจกรรมที่สถานะ completed' });
-    }
+    // 2. อัปเดตชั่วโมงนิสิตที่เข้าร่วมและสถานะ completed + attendance true
+    await queryDb(`
+      UPDATE users u
+      JOIN activity_registrations ar ON u.id = ar.user_id
+      JOIN activities a ON ar.activity_id = a.id
+      SET u.volunteer_hours = u.volunteer_hours + a.hour_value,
+          ar.hours_earned = a.hour_value
+      WHERE ar.activity_id = ? AND ar.attendance = TRUE AND ar.registration_status = 'completed'
+    `, [activityId]);
 
-    res.json(activities);
+    res.status(200).json({ message: 'กิจกรรมเสร็จสมบูรณ์ และอัปเดตชั่วโมงจิตอาสาเรียบร้อย' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล', error: error.message });
   }
 };
-
 
 
 module.exports = {
     getAllActivities,
     getActivityById,
-    getActivityByCompleted
+    completeActivity
 };

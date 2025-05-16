@@ -44,7 +44,7 @@ const getParticipants = (req, res) => {
 // User join activity
 const joinActivity = async (req, res) => {
     const { id } = req.params;
-    const { userId, userName } = req.body;
+    const { userId } = req.body;
 
     const activityId = parseInt(id);
 
@@ -58,18 +58,18 @@ const joinActivity = async (req, res) => {
         const activity = activityRows[0];
 
         // ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
-        const participantRows = await queryDb(
-            'SELECT * FROM activity_participants WHERE activity_id = ? AND user_id = ?',
+        const registrationRows = await queryDb(
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
         );
 
-        if (participantRows.length > 0) {
+        if (registrationRows.length > 0) {
             return res.status(400).json({ message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
         }
 
         // ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
-            'SELECT COUNT(*) AS count FROM activity_participants WHERE activity_id = ?',
+            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
 
@@ -81,8 +81,10 @@ const joinActivity = async (req, res) => {
 
         // เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
-            'INSERT INTO activity_participants (activity_id, user_id, user_name) VALUES (?, ?, ?)',
-            [activityId, userId, userName]
+            `INSERT INTO activity_registrations 
+            (activity_id, user_id, registration_status, registration_date, updated_at) 
+            VALUES (?, ?, 'pending', NOW(), NOW())`,
+            [activityId, userId]
         );
 
         res.json({
@@ -96,6 +98,8 @@ const joinActivity = async (req, res) => {
         res.status(500).json({ message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
     }
 };
+
+
 
 module.exports = {
     getParticipants,
