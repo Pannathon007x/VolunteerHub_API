@@ -89,6 +89,13 @@ const login = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+<<<<<<< Updated upstream
 
+=======
+//KUY
+const loginStudent = async (req, res) => {
+  const { email, password } = req.body;
+  console.log("Student login:", email);
+>>>>>>> Stashed changes
 
 module.exports = { register, login };
