@@ -38,15 +38,15 @@ const register = async (req, res) => {
 
     // Check total user count to decide role
     const totalUsers = await queryDb('SELECT COUNT(*) AS count FROM users');
-    const role = totalUsers[0].count === 0 ? 'admin' : 'user';
+    const role = totalUsers[0].count === 0 ? 'admin' : 'student';
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert new user into the database with role
     const result = await queryDb(
-      'INSERT INTO users (student_id, password, first_name, last_name, email, faculty, department) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [student_id, password, first_name, last_name, email, faculty, department]
+      'INSERT INTO users (student_id, password, first_name, last_name, email, faculty, department, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [student_id, hashedPassword, first_name, last_name, email, faculty, department, role]
     );
 
     res.status(201).json({ message: 'User registered successfully', role });
@@ -63,7 +63,7 @@ const login = async (req, res) => {
   console.log(email, password);
 
   try {
-    const user = await queryDb('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ? ', [email, "admin"]);
     if (user.length === 0) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -90,5 +90,34 @@ const login = async (req, res) => {
   }
 };
 
+const loginStudent = async (req, res) => {
+  const { email, password } = req.body;
+  console.log("Student login:", email);
 
-module.exports = { register, login };
+  try {
+    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ?', [email, "student"]);
+    if (user.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user[0].password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { userId: user[0].id },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES }
+    );
+
+    res.status(200).json({ message: 'Login successful', token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+module.exports = { register, login, loginStudent};
