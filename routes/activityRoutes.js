@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { createActivity, getAllActivities, getActivityById } = require('../controllers/activityControllers');
+const { createActivity, getAllActivities, getActivityById, completeActivity } = require('../controllers/activityControllers');
 
 // POST /activity
 router.post('/post', createActivity);
@@ -13,6 +13,9 @@ router.get('/get', getAllActivities);
 
 // GET /activity/:id
 router.get('/:id', getActivityById);
+
+// ทำกิจกรรมให้เสร็จ (อัปเดตสถานะ + ชั่วโมงจิตอาสา)
+router.put('/:id/complete', completeActivity);
 
 
 module.exports = router;

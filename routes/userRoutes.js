@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { joinActivity, getParticipants } = require('../controllers/userControllers');
 
-// POST /user/:id/join
+// POST /user/:id/join     id คือ id activity
 router.post('/:id/join', joinActivity);
 
 // GET /user/:id/participants
