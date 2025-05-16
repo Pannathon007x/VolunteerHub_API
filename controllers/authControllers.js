@@ -57,7 +57,8 @@ const register = async (req, res) => {
 };
 
 
-// Login function
+// Admin Login function
+// Admin Login function
 const login = async (req, res) => {
   const { email, password } = req.body;
   console.log(email, password);
