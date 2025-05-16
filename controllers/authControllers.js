@@ -57,10 +57,11 @@ const register = async (req, res) => {
 };
 
 
-// Admin Login function
+// Login function
 const login = async (req, res) => {
   const { email, password } = req.body;
-  console.log("admin login:", email);
+  console.log(email, password);
+
   try {
     const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ? ', [email, "admin"]);
     if (user.length === 0) {
@@ -72,9 +73,9 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Debug ก่อน sign อันนี้โชว์ใน terminal
-    // console.log('JWT_SECRET:', process.env.JWT_SECRET);
-    // console.log('JWT_EXPIRES:', process.env.JWT_EXPIRES);
+    // Debug ก่อน sign
+    console.log('JWT_SECRET:', process.env.JWT_SECRET);
+    console.log('JWT_EXPIRES:', process.env.JWT_EXPIRES);
 
     const token = jwt.sign(
       { userId: user[0].id },
