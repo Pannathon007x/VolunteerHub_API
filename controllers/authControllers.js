@@ -57,13 +57,13 @@ const register = async (req, res) => {
 };
 
 
-// Login function
+// Admin Login function
 const login = async (req, res) => {
   const { email, password } = req.body;
   console.log(email, password);
 
   try {
-    const user = await queryDb('SELECT * FROM users WHERE email = ?', [email]);
+    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ?', [email, 'admin']);
     if (user.length === 0) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
