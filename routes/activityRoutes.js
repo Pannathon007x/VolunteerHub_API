@@ -3,12 +3,12 @@ const router = express.Router();
 
 const { createActivity, getAllActivities, getActivityById } = require('../controllers/activityControllers');
 
-// POST /activity/post
+// POST /activity
 router.post('/post', createActivity);
 
 
 
-// GET /activity/get
+// GET /activity
 router.get('/get', getAllActivities);
 
 // GET /activity/:id
