@@ -11,7 +11,7 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
     if (err) {
-        console.error('Error connecting to database:', err);
+        console.error('NEW1Error connecting to database:', err);
     } else {
         console.log('Connected to MariaDB');
     }
