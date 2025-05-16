@@ -58,7 +58,7 @@ const register = async (req, res) => {
 
 
 // Login function
-const login = async (req, res) => {
+const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
   console.log(email, password);
 
@@ -120,4 +120,4 @@ const loginStudent = async (req, res) => {
 
 
 
-module.exports = { register, login, loginStudent};
+module.exports = { register, loginAdmin, loginStudent};
