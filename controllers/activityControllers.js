@@ -1,4 +1,3 @@
-const activities = require('../models/activityModel');
 const mysql = require('mysql2');
 require('dotenv').config();
 
@@ -162,9 +161,30 @@ const getActivityById = async (req, res) => {
     }
 };
 
+    // Get activity by id and status completed
+const getActivityByCompleted = async (req, res) => {
+  try {
+    const activities = await queryDb(
+      'SELECT * FROM activities WHERE status = ?',
+      ['completed']
+    );
+
+    if (activities.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบกิจกรรมที่สถานะ completed' });
+    }
+
+    res.json(activities);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+  }
+};
+
+
 
 module.exports = {
     createActivity,
     getAllActivities,
-    getActivityById
+    getActivityById,
+    getActivityByCompleted
 };
