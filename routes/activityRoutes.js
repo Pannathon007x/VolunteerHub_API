@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { createActivity, getAllActivities, getActivityById, getActivityByCompleted } = require('../controllers/activityControllers');
-
-// POST /activity
-router.post('/post', createActivity);
+const { getAllActivities, getActivityById, getActivityByCompleted } = require('../controllers/activityControllers');
 
 router.get('/completed', getActivityByCompleted);
 // GET /activity
