@@ -8,6 +8,7 @@ const { approveActivity, cancelActivity, createActivity  } = require('../control
 router.post('/post', createActivity);
 
 router.patch('/approve/:id', approveActivity);
+
 router.patch('/cancel/:id', cancelActivity);
 
 

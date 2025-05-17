@@ -29,8 +29,10 @@ const queryDb = (query, values) => {
 const approveActivity = async (req, res) => {
   const activityId = req.params.id;
 
+  // กำหนด adminId สำหรับทดสอบ (เปลี่ยนตามระบบจริง)
+  const adminId = 1;
+
   try {
-   
     const activity = await queryDb(
       'SELECT * FROM activities WHERE id = ? AND status = ?',
       [activityId, 'pending']
@@ -40,10 +42,15 @@ const approveActivity = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบกิจกรรมที่รออนุมัติ' });
     }
 
-    // อัปเดตสถานะเป็น completed
     await queryDb(
       'UPDATE activities SET status = ? WHERE id = ?',
-      ['completed', activityId]
+      ['approved', activityId]
+    );
+
+    await queryDb(
+      `INSERT INTO activity_approvals (activity_id, admin_id, approval_status, approval_date) 
+       VALUES (?, ?, ?, NOW())`,
+      [activityId, adminId, 'approved']
     );
 
     res.status(200).json({ message: 'อนุมัติกิจกรรมเรียบร้อยแล้ว' });
@@ -53,6 +60,8 @@ const approveActivity = async (req, res) => {
     res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
   }
 };
+
+
 
 // ฟังก์ชันยกเลิกกิจกรรม
 const cancelActivity = async (req, res) => {

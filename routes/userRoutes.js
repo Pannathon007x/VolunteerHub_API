@@ -1,14 +1,16 @@
 const express = require('express');
 const router = express.Router();
 
-const { joinActivity, getParticipants, getCompletedActivities } = require('../controllers/userControllers');
+const { joinActivity, getParticipants, getCompletedActivities, getUserRegisteredActivities } = require('../controllers/userControllers');
 
-// POST /user/:id/join
+// POST /user/join/:id
 router.post('/join/:id', joinActivity);
 
 // GET /user/:id/participants
-router.get('/:id/participants', getParticipants);
+router.get('/participants/:id', getParticipants);
 
 router.get('/activity/completed',getCompletedActivities);
+
+router.get('/registed/:id',getUserRegisteredActivities);
 
 module.exports = router;

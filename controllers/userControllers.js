@@ -56,44 +56,44 @@ const joinActivity = async (req, res) => {
         );
 
         if (activityRows.length === 0) {
-            return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ระบุ' });
+            return res.status(404).json({ stasus:'ERROR',message: 'ไม่พบกิจกรรมที่ระบุ' });
         }
         const activity = activityRows[0];
 
-        // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'completed'
-        if (activity.status !== 'completed') {
-            return res.status(400).json({ message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
+        // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'approved'
+        if (activity.status !== 'approved') {
+            return res.status(400).json({ stasus:'ERROR', message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
         }
 
         // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
-            'SELECT * FROM activity_participants WHERE activity_id = ? AND user_id = ?',
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
         );
 
         if (participantRows.length > 0) {
-            return res.status(400).json({ message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
+            return res.status(400).json({ stasus:'ERROR',message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
         }
 
         // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
-            'SELECT COUNT(*) AS count FROM activity_participants WHERE activity_id = ?',
+            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
 
         const participantsCount = participantsCountRows[0].count;
         if (participantsCount >= activity.max_participants) {
-            return res.status(400).json({ message: 'กิจกรรมเต็มแล้ว' });
+            return res.status(400).json({ stasus:'ERROR', message: 'กิจกรรมเต็มแล้ว' });
         }
 
         // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
-            'INSERT INTO activity_participants (activity_id, user_id, user_name) VALUES (?, ?, ?)',
+            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
             [activityId, userId, userName]
         );
 
-        res.json({
-            message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
+        res.status(200).json({
+            stasus:'SUCCESS',message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
             activityId: activity.id,
             participantsCount: participantsCount + 1
         });
@@ -142,9 +142,9 @@ const getCompletedActivities = async (req, res) => {
 };
 
 const getUserRegisteredActivities = async (req, res) => {
-  const userId = parseInt(req.user,id); 
+  const userId = parseInt(req.params.id);
 
-  if (!userId) {
+  if (!userId || isNaN(userId)) {
     return res.status(400).json({ message: 'ไม่พบรหัสผู้ใช้' });
   }
 
@@ -186,9 +186,12 @@ const getUserRegisteredActivities = async (req, res) => {
   }
 };
 
+
+
+
 module.exports = {
     getParticipants,
     joinActivity,
     getCompletedActivities,
-     getUserRegisteredActivities
+    getUserRegisteredActivities
 };

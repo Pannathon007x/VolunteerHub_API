@@ -87,6 +87,7 @@ const getActivityById = async (req, res) => {
     }
 };
 
+// ฟังก์ชันปิดกิจกรรม
 const closeActivity = async (req, res) => {
   const { id: activityId } = req.params;
 
@@ -94,22 +95,22 @@ const closeActivity = async (req, res) => {
     // 1. อัปเดตสถานะกิจกรรมเป็น 'rejected' (ปิดกิจกรรม)
     await queryDb(
       `UPDATE activities
-         SET status = 'rejected'
+         SET status = 'completed'
          WHERE id = ?`,
       [activityId]
     );
 
     // 2. จ่ายชั่วโมงจิตอาสาให้ผู้เข้าร่วมทุกคน ตาม hour_value ของกิจกรรมนั้น
     await queryDb(
-      `UPDATE activity_registrations ar
-         JOIN activities a ON ar.activity_id = a.id
-         JOIN users u       ON u.id = ar.user_id
-         -- ถ้าอยากจ่ายชั่วโมงเฉพาะคนที่มาจริง ให้เพิ่ม AND ar.attendance = TRUE ไว้ใน WHERE
-       SET ar.hours_earned   = a.hour_value,
-           u.volunteer_hours = u.volunteer_hours + a.hour_value
-       WHERE ar.activity_id = ?`,
-      [activityId]
-    );
+        `UPDATE activity_registrations ar
+        JOIN activities a ON ar.activity_id = a.id
+        JOIN users u ON u.id = ar.user_id
+        SET ar.hours_earned = a.hour_value,
+        u.volunteer_hours = u.volunteer_hours + a.hour_value,
+        ar.registration_status = 'completed'
+        WHERE ar.activity_id = ? AND ar.registration_status = 'pending'`,
+    [activityId]
+);
 
     res.status(200).json({
       message: 'ปิดกิจกรรมเรียบร้อย และจ่ายชั่วโมงจิตอาสาให้ผู้เข้าร่วมทุกคนตามที่กำหนดแล้ว'
