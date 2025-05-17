@@ -49,15 +49,23 @@ const joinActivity = async (req, res) => {
     const activityId = parseInt(id);
 
     try {
-        // ตรวจสอบว่ากิจกรรมมีอยู่จริงหรือไม่
-        const activityRows = await queryDb('SELECT * FROM activities WHERE id = ?', [activityId]);
+        // 1. ตรวจสอบว่ากิจกรรมมีอยู่จริงหรือไม่
+        const activityRows = await queryDb(
+            'SELECT * FROM activities WHERE id = ?', 
+            [activityId]
+        );
 
         if (activityRows.length === 0) {
             return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ระบุ' });
         }
         const activity = activityRows[0];
 
-        // ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
+        // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'completed'
+        if (activity.status !== 'completed') {
+            return res.status(400).json({ message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
+        }
+
+        // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
             'SELECT * FROM activity_participants WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
@@ -67,19 +75,18 @@ const joinActivity = async (req, res) => {
             return res.status(400).json({ message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
         }
 
-        // ตรวจสอบจำนวนผู้เข้าร่วม
+        // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
             'SELECT COUNT(*) AS count FROM activity_participants WHERE activity_id = ?',
             [activityId]
         );
 
         const participantsCount = participantsCountRows[0].count;
-
         if (participantsCount >= activity.max_participants) {
             return res.status(400).json({ message: 'กิจกรรมเต็มแล้ว' });
         }
 
-        // เพิ่มข้อมูลผู้เข้าร่วมใหม่
+        // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
             'INSERT INTO activity_participants (activity_id, user_id, user_name) VALUES (?, ?, ?)',
             [activityId, userId, userName]
@@ -97,7 +104,46 @@ const joinActivity = async (req, res) => {
     }
 };
 
+const getCompletedActivities = async (req, res) => {
+  try {
+    // 1. ดึงข้อมูลกิจกรรมที่เสร็จสมบูรณ์
+    const completedRows = await queryDb(
+      `SELECT
+         id,
+         title,
+         description,
+         activity_type_id,
+         start_datetime,
+         end_datetime,
+         location,
+         max_participants,
+         hour_value,
+         creator_id,
+         status,
+         created_at,
+         updated_at
+       FROM activities
+       WHERE status = ?`,
+      ['completed']
+    );
+
+    // 2. ถ้าไม่มีข้อมูลก็ส่งกลับเป็นอาเรย์ว่าง
+    return res.status(200).json({
+      message: 'โหลดกิจกรรมที่เสร็จสมบูรณ์สำเร็จ',
+      activities: completedRows
+    });
+  } catch (error) {
+    console.error('getCompletedActivities error:', error);
+    return res.status(500).json({
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลกิจกรรม',
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
     getParticipants,
-    joinActivity
+    joinActivity,
+    getCompletedActivities
 };
