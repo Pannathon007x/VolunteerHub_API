@@ -157,5 +157,5 @@ const createActivity = async (req, res) => {
 
 
 
-module.exports = { approveActivity, cancelActivity, createActivity };
+module.exports = { approveActivity, cancelActivity, createActivity,  };
 

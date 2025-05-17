@@ -24,57 +24,121 @@ const queryDb = (query, values) => {
 
 // Get All Activities (Filter + Pagination)
 const getAllActivities = async (req, res) => {
-    const { page = 1, limit = 10, status, activity_type_id } = req.query;
+  const { page = 1, limit = 10, status, activity_type_id } = req.query;
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const offset = (pageNum - 1) * limitNum;
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    try {
-        let whereClauses = [];
-        let values = [];
-
-        if (status) {
-            whereClauses.push('status = ?');
-            values.push(status);
-        }
-
-        if (activity_type_id) {
-            whereClauses.push('activity_type_id = ?');
-            values.push(activity_type_id);
-        }
-
-        const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
-
-        // Total count
-        const countResult = await queryDb(`SELECT COUNT(*) AS total FROM activities ${whereSql}`, values);
-        const total = countResult[0].total;
-
-        // Get actual data
-        const activities = await queryDb(
-            `SELECT * FROM activities ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-            [...values, limitNum, offset]
-        );
-
-        res.json({
-            total,
-            page: pageNum,
-            limit: limitNum,
-            data: activities
-        });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+  try {
+    // เงื่อนไข where เดิม ๆ
+    let whereClauses = [];
+    let values = [];
+    if (status) {
+      whereClauses.push('a.status = ?');
+      values.push(status);
     }
+    if (activity_type_id) {
+      whereClauses.push('a.activity_type_id = ?');
+      values.push(activity_type_id);
+    }
+    const whereSql = whereClauses.length
+      ? 'WHERE ' + whereClauses.join(' AND ')
+      : '';
+
+    // นับทั้งหมด
+    const countResult = await queryDb(
+      `SELECT COUNT(*) AS total
+       FROM activities a
+       ${whereSql}`,
+      values
+    );
+    const total = countResult[0].total;
+
+    // ดึงข้อมูล พร้อมชื่อประเภทกิจกรรม (activity_types.name) มา alias ว่า activity_type_name
+    const activities = await queryDb(
+      `SELECT
+         a.*,
+         at.name AS activity_type_name
+       FROM activities a
+       JOIN activity_types at
+         ON a.activity_type_id = at.id
+       ${whereSql}
+       ORDER BY a.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...values, limitNum, offset]
+    );
+
+    res.json({
+      total,
+      page: pageNum,
+      limit: limitNum,
+      data: activities
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
+// const getAllActivities = async (req, res) => {
+//     const { page = 1, limit = 10, status, activity_type_id } = req.query;
+
+//     const pageNum = parseInt(page);
+//     const limitNum = parseInt(limit);
+//     const offset = (pageNum - 1) * limitNum;
+
+//     try {
+//         let whereClauses = [];
+//         let values = [];
+
+//         if (status) {
+//             whereClauses.push('status = ?');
+//             values.push(status);
+//         }
+
+//         if (activity_type_id) {
+//             whereClauses.push('activity_type_id = ?');
+//             values.push(activity_type_id);
+//         }
+
+//         const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+//         // Total count
+//         const countResult = await queryDb(`SELECT COUNT(*) AS total FROM activities ${whereSql}`, values);
+//         const total = countResult[0].total;
+
+//         // Get actual data
+//         const activities = await queryDb(
+//             `SELECT * FROM activities ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+//             [...values, limitNum, offset]
+//         );
+
+//         res.json({
+//             total,
+//             page: pageNum,
+//             limit: limitNum,
+//             data: activities
+//         });
+
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+//     }
+// };
 
 // Get activity by ID
 const getActivityById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const activities = await queryDb('SELECT * FROM activities WHERE id = ?', [id]);
+        const activities = await queryDb(`SELECT
+         a.*,
+         at.id   AS activity_type_id,
+         at.name AS activity_type_name
+       FROM activities a
+       JOIN activity_types at
+         ON a.activity_type_id = at.id
+       WHERE a.id = ?`,
+      [id]);
 
         if (activities.length === 0) {
             return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ระบุ' });
@@ -123,12 +187,52 @@ const closeActivity = async (req, res) => {
   }
 };
 
+// Update activity เพิ่มใหม่
+const updateActivity = async (req, res) => {
+  const { id } = req.params;
+  const { title, description, activity_type_id, start_datetime, end_datetime } = req.body;
 
+  try {
+    // 1. ทำการอัปเดตข้อมูลตามปกติ
+    await queryDb(
+      `UPDATE activities
+         SET title             = ?,
+             description       = ?,
+             activity_type_id  = ?,
+             start_datetime    = ?,
+             end_datetime      = ?
+       WHERE id = ?`,
+      [title, description, activity_type_id, start_datetime, end_datetime, id]
+    );
 
+    // 2. ดึงกิจกรรมที่อัปเดตแล้วกลับมา
+    const [updated] = await queryDb(
+      `SELECT
+         a.*,
+         at.name AS activity_type_name
+       FROM activities a
+       JOIN activity_types at
+         ON a.activity_type_id = at.id
+       WHERE a.id = ?`,
+      [id]
+    );
+
+    // 3. ส่งกลับทั้ง message และ object ของกิจกรรมที่อัปเดตแล้ว
+    res.json({
+      message: 'แก้ไขเรียบร้อย',
+      activity: updated
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
 
 
 module.exports = {
     getAllActivities,
     getActivityById,
-    closeActivity
+    closeActivity,
+    updateActivity
 };
