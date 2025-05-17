@@ -141,9 +141,54 @@ const getCompletedActivities = async (req, res) => {
   }
 };
 
+const getUserRegisteredActivities = async (req, res) => {
+  const userId = parseInt(req.user,id); 
+
+  if (!userId) {
+    return res.status(400).json({ message: 'ไม่พบรหัสผู้ใช้' });
+  }
+
+  try {
+    const rows = await queryDb(
+      `SELECT
+         a.id,
+         a.title,
+         a.description,
+         a.activity_type_id,
+         a.start_datetime,
+         a.end_datetime,
+         a.location,
+         a.max_participants,
+         a.hour_value,
+         a.creator_id,
+         a.status,
+         a.created_at,
+         a.updated_at,
+         ar.registration_status,
+         ar.attendance,
+         ar.hours_earned
+       FROM activity_registrations ar
+       JOIN activities a ON ar.activity_id = a.id
+       WHERE ar.user_id = ?`,
+      [userId]
+    );
+
+    return res.status(200).json({
+      message: 'ดึงกิจกรรมที่ลงทะเบียนไว้สำเร็จ',
+      activities: rows,
+    });
+  } catch (error) {
+    console.error('getUserRegisteredActivities error:', error);
+    return res.status(500).json({
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลกิจกรรม',
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
     getParticipants,
     joinActivity,
-    getCompletedActivities
+    getCompletedActivities,
+     getUserRegisteredActivities
 };
