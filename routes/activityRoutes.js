@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-const { getAllActivities, getActivityById, closeActivity } = require('../controllers/activityControllers');
+const { getActivityById, closeActivity } = require('../controllers/activityControllers');
 
 
-// GET /activity/get
-router.get('/', getAllActivities);
+
 
 // GET /activity/:id
 router.get('/:id', getActivityById);

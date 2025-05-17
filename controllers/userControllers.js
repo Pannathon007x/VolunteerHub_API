@@ -186,6 +186,53 @@ const getUserRegisteredActivities = async (req, res) => {
   }
 };
 
+const userGetAllActivities = async (req, res) => {
+  const { activity_type_id, title } = req.query;  // status เอาออกเพราะจะบังคับเป็น completed
+
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    let whereClauses = ['status = ?'];  // บังคับสถานะ completed
+    let values = ['approved'];
+
+    if (activity_type_id) {
+      whereClauses.push('activity_type_id = ?');
+      values.push(activity_type_id);
+    }
+
+    if (title) {
+      whereClauses.push('title LIKE ?');
+      values.push(`%${title}%`);
+    }
+
+    const whereSql = 'WHERE ' + whereClauses.join(' AND ');
+
+    const countResult = await queryDb(
+      `SELECT COUNT(*) AS total FROM activities ${whereSql}`,
+      values
+    );
+    const total = countResult[0].total;
+
+    const activities = await queryDb(
+      `SELECT * FROM activities ${whereSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`,
+      [...values, limit, offset]
+    );
+
+    res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: activities,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+  }
+};
+
 
 
 
@@ -193,5 +240,6 @@ module.exports = {
     getParticipants,
     joinActivity,
     getCompletedActivities,
-    getUserRegisteredActivities
+    getUserRegisteredActivities,
+    userGetAllActivities
 };
