@@ -118,6 +118,4 @@ const loginStudent = async (req, res) => {
   }
 };
 
-
-
-module.exports = { register, loginAdmin, loginStudent,};
+module.exports = { register, loginAdmin, loginStudent};

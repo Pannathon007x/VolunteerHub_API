@@ -29,8 +29,10 @@ const queryDb = (query, values) => {
 const approveActivity = async (req, res) => {
   const activityId = req.params.id;
 
+  // กำหนด adminId สำหรับทดสอบ (เปลี่ยนตามระบบจริง)
+  const adminId = 1;
+
   try {
-   
     const activity = await queryDb(
       'SELECT * FROM activities WHERE id = ? AND status = ?',
       [activityId, 'pending']
@@ -40,10 +42,15 @@ const approveActivity = async (req, res) => {
       return res.status(404).json({ message: 'ไม่พบกิจกรรมที่รออนุมัติ' });
     }
 
-    // อัปเดตสถานะเป็น completed
     await queryDb(
       'UPDATE activities SET status = ? WHERE id = ?',
-      ['completed', activityId]
+      ['approved', activityId]
+    );
+
+    await queryDb(
+      `INSERT INTO activity_approvals (activity_id, admin_id, approval_status, approval_date) 
+       VALUES (?, ?, ?, NOW())`,
+      [activityId, adminId, 'approved']
     );
 
     res.status(200).json({ message: 'อนุมัติกิจกรรมเรียบร้อยแล้ว' });
@@ -53,6 +60,8 @@ const approveActivity = async (req, res) => {
     res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
   }
 };
+
+
 
 // ฟังก์ชันยกเลิกกิจกรรม
 const cancelActivity = async (req, res) => {
@@ -155,7 +164,136 @@ const createActivity = async (req, res) => {
     }
 };
 
+// Get All Activities 
+const getAllActivities = async (req, res) => {
+  const { status, activity_type_id, title } = req.query;  // แก้ 'titel' เป็น 'title'
+
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    let whereClauses = [];
+    let values = [];
+
+    if (status) {
+      whereClauses.push('status = ?');
+      values.push(status);
+    }
+
+    if (activity_type_id) {
+      whereClauses.push('activity_type_id = ?');
+      values.push(activity_type_id);
+    }
+
+    if (title) {
+      whereClauses.push('title LIKE ?');  // ใช้ชื่อ column ถูกต้อง 'title'
+      values.push(`%${title}%`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    const countResult = await queryDb(
+      `SELECT COUNT(*) AS total FROM activities ${whereSql}`,
+      values
+    );
+    const total = countResult[0].total;
+
+    const activities = await queryDb(
+      `SELECT * FROM activities ${whereSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`,
+      [...values, limit, offset]
+    );
+
+    res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: activities,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
+  }
+};
+
+// change role user to Staff function
+const changeRoleToStaff = async (req, res) => {
+  const userId = req.query.id;  // ดึงจาก query string
+
+  if (!userId) {
+    return res.status(400).json({ message: 'กรุณาระบุ id ของผู้ใช้' });
+  }
+
+  try {
+    // Check if the user exists
+    const user = await queryDb('SELECT * FROM users WHERE id = ?', [userId]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ระบุ' });
+    }
+
+    // Update the user's role to 'staff'
+    await queryDb('UPDATE users SET role = ? WHERE id = ?', ['staff', userId]);
+
+    res.status(200).json({ message: 'เปลี่ยนบทบาทผู้ใช้เป็น Staff เรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการเปลี่ยนบทบาทผู้ใช้:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+// Show staff
+const showStaff = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    // นับจำนวนทั้งหมด
+    const countResult = await queryDb('SELECT COUNT(*) AS total FROM users WHERE role = ?', ['staff']);
+    const total = countResult[0].total;
+
+    // ดึงข้อมูลแบบแบ่งหน้า
+    const staff = await queryDb(
+      'SELECT * FROM users WHERE role = ? LIMIT ? OFFSET ?',
+      ['staff', limit, offset]
+    );
+
+    res.status(200).json({
+      message: 'ดึงข้อมูล Staff สำเร็จ',
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: staff,
+    });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการดึงข้อมูล Staff:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+//Edit staff
+const editStaff = async (req, res) => {
+  const { id } = req.params;
+  const { first_name, last_name, email } = req.body;
 
 
-module.exports = { approveActivity, cancelActivity, createActivity };
+  try {
+    // Update staff information
+    console.log(first_name, last_name, email, id);
+    await queryDb(
+      'UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE id = ?',
+      [first_name, last_name, email, id]
+    );
+
+    res.status(200).json({ message: 'แก้ไขข้อมูล Staff เรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการแก้ไขข้อมูล Staff:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+
+module.exports = { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff, editStaff };
 

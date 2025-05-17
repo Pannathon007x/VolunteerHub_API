@@ -56,44 +56,47 @@ const joinActivity = async (req, res) => {
         );
 
         if (activityRows.length === 0) {
-            return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ระบุ' });
+            return res.status(404).json({ stasus:'ERROR',message: 'ไม่พบกิจกรรมที่ระบุ' });
         }
         const activity = activityRows[0];
 
         // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'approved'
         if (activity.status !== 'approved') {
-            return res.status(400).json({ message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
+            return res.status(400).json({ stasus:'ERROR', message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
         }
 
         // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
             'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
         );
 
         if (participantRows.length > 0) {
-            return res.status(400).json({ message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
+            return res.status(400).json({ stasus:'ERROR',message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
         }
 
         // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
+            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
 
         const participantsCount = participantsCountRows[0].count;
         if (participantsCount >= activity.max_participants) {
-            return res.status(400).json({ message: 'กิจกรรมเต็มแล้ว' });
+            return res.status(400).json({ stasus:'ERROR', message: 'กิจกรรมเต็มแล้ว' });
         }
 
         // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
             'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
+            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
             [activityId, userId, userName]
         );
 
-        res.json({
-            message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
+        res.status(200).json({
+            stasus:'SUCCESS',message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
             activityId: activity.id,
             participantsCount: participantsCount + 1
         });
@@ -141,10 +144,11 @@ const getCompletedActivities = async (req, res) => {
   }
 };
 
+// ฟังก์ชันดึงกิจกรรมที่ผู้ใช้ลงทะเบียนไว้
 const getUserRegisteredActivities = async (req, res) => {
-  const userId = parseInt(req.user,id); 
+  const userId = parseInt(req.query.id);  // เปลี่ยนเป็น req.query.id
 
-  if (!userId) {
+  if (!userId || isNaN(userId)) {
     return res.status(400).json({ message: 'ไม่พบรหัสผู้ใช้' });
   }
 
@@ -186,51 +190,54 @@ const getUserRegisteredActivities = async (req, res) => {
   }
 };
 
-const getUserProfileWithHours = async (req, res) => {
-  const userId = req.params.id;
+
+const userGetAllActivities = async (req, res) => {
+  const { activity_type_id, title } = req.query;  // status เอาออกเพราะจะบังคับเป็น completed
+
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
   try {
-    const rows = await queryDb(
-      `SELECT 
-         u.id,
-         u.student_id,
-         u.first_name,
-         u.last_name,
-         u.email,
-         u.faculty,
-         u.department,
-         u.role,
-         u.user_status,
-         u.volunteer_hours,
-         COALESCE(SUM(ar.hours_earned), 0) AS total_hours_earned
-       FROM users u
-       LEFT JOIN activity_registrations ar ON u.id = ar.user_id AND ar.registration_status = 'completed'
-       WHERE u.id = ?
-       GROUP BY u.id`,
-      [userId]
-    );
+    let whereClauses = ['status = ?'];  // บังคับสถานะ completed
+    let values = ['approved'];
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        message: 'ไม่พบผู้ใช้ที่ระบุ'
-      });
+    if (activity_type_id) {
+      whereClauses.push('activity_type_id = ?');
+      values.push(activity_type_id);
     }
 
-    const profile = { ...rows[0] };
-    delete profile.total_hours_earned;  // ลบ key นี้ออก
+    if (title) {
+      whereClauses.push('title LIKE ?');
+      values.push(`%${title}%`);
+    }
 
-    return res.status(200).json({
-      message: 'โหลดโปรไฟล์และชั่วโมงกิจกรรมสำเร็จ',
-      profile
+    const whereSql = 'WHERE ' + whereClauses.join(' AND ');
+
+    const countResult = await queryDb(
+      `SELECT COUNT(*) AS total FROM activities ${whereSql}`,
+      values
+    );
+    const total = countResult[0].total;
+
+    const activities = await queryDb(
+      `SELECT * FROM activities ${whereSql} ORDER BY created_at ASC LIMIT ? OFFSET ?`,
+      [...values, limit, offset]
+    );
+
+    res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: activities,
     });
   } catch (error) {
-    console.error('getUserProfileWithHours error:', error);
-    return res.status(500).json({
-      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์',
-      error: error.message
-    });
+    console.error(error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล', error: error.message });
   }
 };
+
 
 
 
@@ -239,5 +246,5 @@ module.exports = {
     joinActivity,
     getCompletedActivities,
     getUserRegisteredActivities,
-    getUserProfileWithHours
+    userGetAllActivities
 };
