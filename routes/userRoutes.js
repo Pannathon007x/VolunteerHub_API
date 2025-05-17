@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { joinActivity, getParticipants, getCompletedActivities } = require('../controllers/userControllers');
+const { joinActivity, getParticipants, getCompletedActivities, getUserRegisteredActivities, getUserProfileWithHours } = require('../controllers/userControllers');
 
 // POST /user/:id/join
 router.post('/join/:id', joinActivity);
@@ -10,5 +10,9 @@ router.post('/join/:id', joinActivity);
 router.get('/:id/participants', getParticipants);
 
 router.get('/activity/completed',getCompletedActivities);
+
+router.get('/registed/:id',getUserRegisteredActivities);
+
+router.get('/userview/:id', getUserProfileWithHours);
 
 module.exports = router;

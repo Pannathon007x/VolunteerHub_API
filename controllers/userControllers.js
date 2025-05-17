@@ -60,14 +60,14 @@ const joinActivity = async (req, res) => {
         }
         const activity = activityRows[0];
 
-        // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'completed'
-        if (activity.status !== 'completed') {
+        // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'approved'
+        if (activity.status !== 'approved') {
             return res.status(400).json({ message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
         }
 
         // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
-            'SELECT * FROM activity_participants WHERE activity_id = ? AND user_id = ?',
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
         );
 
@@ -77,7 +77,7 @@ const joinActivity = async (req, res) => {
 
         // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
-            'SELECT COUNT(*) AS count FROM activity_participants WHERE activity_id = ?',
+            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
 
@@ -88,7 +88,7 @@ const joinActivity = async (req, res) => {
 
         // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
-            'INSERT INTO activity_participants (activity_id, user_id, user_name) VALUES (?, ?, ?)',
+            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
             [activityId, userId, userName]
         );
 
@@ -186,9 +186,58 @@ const getUserRegisteredActivities = async (req, res) => {
   }
 };
 
+const getUserProfileWithHours = async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const rows = await queryDb(
+      `SELECT 
+         u.id,
+         u.student_id,
+         u.first_name,
+         u.last_name,
+         u.email,
+         u.faculty,
+         u.department,
+         u.role,
+         u.user_status,
+         u.volunteer_hours,
+         COALESCE(SUM(ar.hours_earned), 0) AS total_hours_earned
+       FROM users u
+       LEFT JOIN activity_registrations ar ON u.id = ar.user_id AND ar.registration_status = 'completed'
+       WHERE u.id = ?
+       GROUP BY u.id`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: 'ไม่พบผู้ใช้ที่ระบุ'
+      });
+    }
+
+    const profile = { ...rows[0] };
+    delete profile.total_hours_earned;  // ลบ key นี้ออก
+
+    return res.status(200).json({
+      message: 'โหลดโปรไฟล์และชั่วโมงกิจกรรมสำเร็จ',
+      profile
+    });
+  } catch (error) {
+    console.error('getUserProfileWithHours error:', error);
+    return res.status(500).json({
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์',
+      error: error.message
+    });
+  }
+};
+
+
+
 module.exports = {
     getParticipants,
     joinActivity,
     getCompletedActivities,
-     getUserRegisteredActivities
+    getUserRegisteredActivities,
+    getUserProfileWithHours
 };
