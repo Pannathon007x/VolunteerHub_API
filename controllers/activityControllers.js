@@ -1,4 +1,3 @@
-const activities = require('../models/activityModel');
 const mysql = require('mysql2');
 require('dotenv').config();
 
@@ -11,7 +10,6 @@ const db = mysql.createPool({
     port: process.env.DB_PORT,
 });
 
-
 const queryDb = (query, values) => {
     return new Promise((resolve, reject) => {
         db.query(query, values, (error, results) => {
@@ -23,79 +21,6 @@ const queryDb = (query, values) => {
         });
     });
 };
-
-// Create Activity
-const createActivity = async (req, res) => {
-    const {
-        title,
-        description,
-        activity_type_id,
-        start_datetime,
-        end_datetime,
-        location,
-        max_participants,
-        hour_value,
-        creator_id
-    } = req.body;
-
-    // Validation
-    if (
-        !title ||
-        !description ||
-        !activity_type_id ||
-        !start_datetime ||
-        !end_datetime ||
-        !location ||
-        !max_participants ||
-        !hour_value ||
-        !creator_id
-    ) {
-        return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
-    }
-
-    try {
-        const result = await queryDb(
-            `INSERT INTO activities 
-            (title, description, activity_type_id, start_datetime, end_datetime, location, max_participants, hour_value, creator_id, status, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-            [
-                title,
-                description,
-                activity_type_id,
-                start_datetime,
-                end_datetime,
-                location,
-                max_participants,
-                hour_value,
-                creator_id,
-                'pending'   // fix status เป็น pending
-            ]
-        );
-
-        return res.status(201).json({
-            message: 'สร้างกิจกรรมสำเร็จ',
-            activity: {
-                id: result.insertId,
-                title,
-                description,
-                activity_type_id,
-                start_datetime,
-                end_datetime,
-                location,
-                max_participants,
-                hour_value,
-                creator_id,
-                status: 'pending',
-                created_at: new Date(),
-                updated_at: new Date()
-            }
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างกิจกรรม', error: error.message });
-    }
-};
-
 
 // Get All Activities (Filter + Pagination)
 const getAllActivities = async (req, res) => {
@@ -162,34 +87,48 @@ const getActivityById = async (req, res) => {
     }
 };
 
-const completeActivity = async (req, res) => {
+const closeActivity = async (req, res) => {
   const { id: activityId } = req.params;
 
   try {
-    // 1. อัปเดตสถานะกิจกรรมเป็น completed
-    await queryDb(`UPDATE activities SET status = 'completed' WHERE id = ?`, [activityId]);
+    // 1. อัปเดตสถานะกิจกรรมเป็น 'rejected' (ปิดกิจกรรม)
+    await queryDb(
+      `UPDATE activities
+         SET status = 'rejected'
+         WHERE id = ?`,
+      [activityId]
+    );
 
-    // 2. อัปเดตชั่วโมงนิสิตที่เข้าร่วมและสถานะ completed + attendance true
-    await queryDb(`
-      UPDATE users u
-      JOIN activity_registrations ar ON u.id = ar.user_id
-      JOIN activities a ON ar.activity_id = a.id
-      SET u.volunteer_hours = u.volunteer_hours + a.hour_value,
-          ar.hours_earned = a.hour_value
-      WHERE ar.activity_id = ? AND ar.attendance = TRUE AND ar.registration_status = 'completed'
-    `, [activityId]);
+    // 2. จ่ายชั่วโมงจิตอาสาให้ผู้เข้าร่วมทุกคน ตาม hour_value ของกิจกรรมนั้น
+    await queryDb(
+      `UPDATE activity_registrations ar
+         JOIN activities a ON ar.activity_id = a.id
+         JOIN users u       ON u.id = ar.user_id
+         -- ถ้าอยากจ่ายชั่วโมงเฉพาะคนที่มาจริง ให้เพิ่ม AND ar.attendance = TRUE ไว้ใน WHERE
+       SET ar.hours_earned   = a.hour_value,
+           u.volunteer_hours = u.volunteer_hours + a.hour_value
+       WHERE ar.activity_id = ?`,
+      [activityId]
+    );
 
-    res.status(200).json({ message: 'กิจกรรมเสร็จสมบูรณ์ และอัปเดตชั่วโมงจิตอาสาเรียบร้อย' });
+    res.status(200).json({
+      message: 'ปิดกิจกรรมเรียบร้อย และจ่ายชั่วโมงจิตอาสาให้ผู้เข้าร่วมทุกคนตามที่กำหนดแล้ว'
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล', error: error.message });
+    res.status(500).json({
+      message: 'เกิดข้อผิดพลาดในการปิดกิจกรรม',
+      error: error.message
+    });
   }
 };
 
 
+
+
+
 module.exports = {
-    createActivity,
     getAllActivities,
     getActivityById,
-    completeActivity
+    closeActivity
 };

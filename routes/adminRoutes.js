@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../config/db'); // Import database connection
+db.connect();
 
-const { getActivityDetails } = require('../controllers/activityControllers');
+const { approveActivity, cancelActivity, createActivity  } = require('../controllers/adminControllers');
 
-// GET /activity/details/:id
-router.get('/details/:id', getActivityDetails);
+router.post('/post', createActivity);
+
+router.patch('/approve/:id', approveActivity);
+router.patch('/cancel/:id', cancelActivity);
+
 
 module.exports = router;

@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { createActivity, getAllActivities, getActivityById, completeActivity } = require('../controllers/activityControllers');
-
-// POST /activity
-router.post('/post', createActivity);
-
+const { getAllActivities, getActivityById, closeActivity } = require('../controllers/activityControllers');
 
 
 // GET /activity
@@ -14,8 +10,7 @@ router.get('/get', getAllActivities);
 // GET /activity/:id
 router.get('/:id', getActivityById);
 
-// ทำกิจกรรมให้เสร็จ (อัปเดตสถานะ + ชั่วโมงจิตอาสา)
-router.put('/:id/complete', completeActivity);
-
+// ปิดกิจกรรมและแจกเวลาให้ผู้เข้าร่วม
+router.put('/closeactivity/:id', closeActivity);
 
 module.exports = router;
