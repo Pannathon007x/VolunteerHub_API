@@ -273,7 +273,27 @@ const showStaff = async (req, res) => {
   }
 };
 
+//Edit staff
+const editStaff = async (req, res) => {
+  const { id } = req.params;
+  const { first_name, last_name, email } = req.body;
 
 
-module.exports = { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff };
+  try {
+    // Update staff information
+    console.log(first_name, last_name, email, id);
+    await queryDb(
+      'UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE id = ?',
+      [first_name, last_name, email, id]
+    );
+
+    res.status(200).json({ message: 'แก้ไขข้อมูล Staff เรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการแก้ไขข้อมูล Staff:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+
+module.exports = { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff, editStaff };
 

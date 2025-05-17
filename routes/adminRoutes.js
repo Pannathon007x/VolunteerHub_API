@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../config/db'); // Import database connection
 db.connect();
 
-const { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff  } = require('../controllers/adminControllers');
+const { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff, editStaff  } = require('../controllers/adminControllers');
 
 router.post('/post', createActivity);
 
@@ -17,6 +17,8 @@ router.get('/', getAllActivities);
 router.patch('/changeroletostaff', changeRoleToStaff)
 
 router.get('/showstaff', showStaff)
+
+router.patch('/editstaff/:id', editStaff)
 
 
 module.exports = router;
