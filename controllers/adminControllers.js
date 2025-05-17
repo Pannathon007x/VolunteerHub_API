@@ -3,55 +3,159 @@ const jwt = require('jsonwebtoken');
 const mysql = require('mysql2');
 require('dotenv').config();
 
-// สร้าง connection pool
+// MariaDB Connection
 const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
 });
 
-// helper function สำหรับ query DB แบบ promise
+
 const queryDb = (query, values) => {
-  return new Promise((resolve, reject) => {
-    db.query(query, values, (error, results) => {
-      if (error) reject(error);
-      else resolve(results);
+    return new Promise((resolve, reject) => {
+        db.query(query, values, (error, results) => {
+            if (error) {
+                reject(error);
+            } else {
+                resolve(results);
+            }
+        });
     });
-  });
 };
 
-// 🟢 ฟังก์ชัน: ดูรายละเอียดกิจกรรม + รายชื่อนิสิตที่สมัคร
-const getActivityDetails = async (req, res) => {
+// ฟังก์ชันอนุมัติกิจกรรม 
+const approveActivity = async (req, res) => {
   const activityId = req.params.id;
 
   try {
-    // ดึงรายละเอียดกิจกรรม
-    const activityDetails = await queryDb('SELECT * FROM activities WHERE id = ?', [activityId]);
-    if (activityDetails.length === 0) {
-      return res.status(404).json({ message: 'ไม่พบกิจกรรม' });
-    }
-
-    // ดึงรายชื่อนิสิตที่สมัครในกิจกรรมนี้
-    const participants = await queryDb(
-      `SELECT u.id, u.student_id, u.first_name, u.last_name, u.email, u.faculty, u.department
-       FROM activity_registrations ar
-       JOIN users u ON ar.user_id = u.id
-       WHERE ar.activity_id = ?`,
-      [activityId]
+   
+    const activity = await queryDb(
+      'SELECT * FROM activities WHERE id = ? AND status = ?',
+      [activityId, 'pending']
     );
 
-    // ส่งข้อมูลกลับไป
-    return res.status(200).json({
-      message: 'ดึงข้อมูลกิจกรรมสำเร็จ',
-      activity: activityDetails[0],
-      participants,
-    });
+    if (activity.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบกิจกรรมที่รออนุมัติ' });
+    }
+
+    // อัปเดตสถานะเป็น completed
+    await queryDb(
+      'UPDATE activities SET status = ? WHERE id = ?',
+      ['completed', activityId]
+    );
+
+    res.status(200).json({ message: 'อนุมัติกิจกรรมเรียบร้อยแล้ว' });
+
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'เกิดข้อผิดพลาดจาก server' });
+    console.error('เกิดข้อผิดพลาดในการอนุมัติกิจกรรม:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
   }
 };
 
-module.exports = { getActivityDetails };
+// ฟังก์ชันยกเลิกกิจกรรม
+const cancelActivity = async (req, res) => {
+  const activityId = req.params.id;
+
+  try {
+    const activity = await queryDb(
+        'SELECT * FROM activities WHERE id = ? AND status IN (?, ?, ?, ?, ?, ?)',
+        [activityId, 'draft', 'pending', 'approved', 'rejected', 'completed', 'cancelled']
+    );
+
+    if (activity.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบกิจกรรมที่รออนุมัติ' });
+    }
+
+    // อัปเดตสถานะเป็น cancelled (สองตัว L)
+    await queryDb(
+      'UPDATE activities SET status = ? WHERE id = ?',
+      ['cancelled', activityId]
+    );
+
+    res.status(200).json({ message: 'ยกเลิกกิจกรรมเรียบร้อยแล้ว' });
+
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการยกเลิกกิจกรรม:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+
+// Create Activity
+const createActivity = async (req, res) => {
+    const {
+        title,
+        description,
+        activity_type_id,
+        start_datetime,
+        end_datetime,
+        location,
+        max_participants,
+        hour_value,
+        creator_id
+    } = req.body;
+
+    // Validation
+    if (
+        !title ||
+        !description ||
+        !activity_type_id ||
+        !start_datetime ||
+        !end_datetime ||
+        !location ||
+        !max_participants ||
+        !hour_value ||
+        !creator_id
+    ) {
+        return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+    }
+
+    try {
+        const result = await queryDb(
+            `INSERT INTO activities 
+            (title, description, activity_type_id, start_datetime, end_datetime, location, max_participants, hour_value, creator_id, status, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+                title,
+                description,
+                activity_type_id,
+                start_datetime,
+                end_datetime,
+                location,
+                max_participants,
+                hour_value,
+                creator_id,
+                'pending'   // fix status เป็น pending
+            ]
+        );
+
+        return res.status(201).json({
+            message: 'สร้างกิจกรรมสำเร็จ',
+            activity: {
+                id: result.insertId,
+                title,
+                description,
+                activity_type_id,
+                start_datetime,
+                end_datetime,
+                location,
+                max_participants,
+                hour_value,
+                creator_id,
+                status: 'pending',
+                created_at: new Date(),
+                updated_at: new Date()
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างกิจกรรม', error: error.message });
+    }
+};
+
+
+
+module.exports = { approveActivity, cancelActivity, createActivity };
+

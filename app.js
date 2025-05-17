@@ -7,6 +7,7 @@ const app = express();
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Middleware
 app.use(bodyParser.json());
@@ -16,6 +17,7 @@ app.use(cors());
 app.use('/auth', authRoutes);
 app.use('/activity', activityRoutes);
 app.use('/user', userRoutes);
+app.use('/admin', adminRoutes);
 
 const PORT = 3001;
 app.listen(PORT, () => {
