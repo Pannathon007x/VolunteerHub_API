@@ -14,4 +14,6 @@ router.post('/register', register);
 // POST /auth/loginstudent
 router.post('/loginstudent', loginStudent);  
 
+
+
 module.exports = router;
