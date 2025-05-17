@@ -4,8 +4,8 @@ const router = express.Router();
 const { getAllActivities, getActivityById, closeActivity } = require('../controllers/activityControllers');
 
 
-// GET /activity
-router.get('/get', getAllActivities);
+// GET /activity/get
+router.get('/', getAllActivities);
 
 // GET /activity/:id
 router.get('/:id', getActivityById);

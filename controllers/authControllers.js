@@ -118,6 +118,34 @@ const loginStudent = async (req, res) => {
   }
 };
 
+const loginStaff = async (req, res) => {
+  const { email, password } = req.body;
+  console.log("Staff login:", email);
+
+  try {
+    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ?', [email, "staff"]);
+    if (user.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user[0].password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { userId: user[0].id },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES }
+    );
+
+    res.status(200).json({ message: 'Login successful', token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 
 module.exports = { register, loginAdmin, loginStudent};
