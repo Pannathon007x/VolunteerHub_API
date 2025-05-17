@@ -68,6 +68,7 @@ const joinActivity = async (req, res) => {
         // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
             'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
             [activityId, userId]
         );
 
@@ -77,6 +78,7 @@ const joinActivity = async (req, res) => {
 
         // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
+            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
@@ -88,6 +90,7 @@ const joinActivity = async (req, res) => {
 
         // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
+            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
             'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
             [activityId, userId, userName]
         );
