@@ -222,6 +222,64 @@ const userGetAllActivities = async (req, res) => {
   }
 };
 
+const getProfileWithHours = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: 'userId ต้องเป็นเลขจำนวนเต็ม' });
+    }
+
+    const userRows = await queryDb(
+      `SELECT 
+         id,
+         student_id,
+         first_name,
+         last_name,
+         email,
+         faculty,
+         department,
+         role,
+         user_status,
+         volunteer_hours
+       FROM users
+       WHERE id = ?`,
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+    }
+
+    const user = userRows[0];
+
+    const hoursRows = await queryDb(
+      `SELECT IFNULL(SUM(hours_earned), 0) AS total_hours_earned
+       FROM activity_registrations
+       WHERE user_id = ? AND registration_status = 'completed'`,
+      [userId]
+    );
+
+    res.json({
+      profile: {
+        id: user.id,
+        student_id: user.student_id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        faculty: user.faculty,
+        department: user.department,
+        role: user.role,
+        user_status: user.user_status,
+        volunteer_hours: user.volunteer_hours,
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการโหลดโปรไฟล์', error: error.message });
+  }
+};
+
 
 
 
@@ -229,5 +287,6 @@ module.exports = {
     joinActivity,
     getCompletedActivities,
     getUserRegisteredActivities,
-    userGetAllActivities
+    userGetAllActivities,
+    getProfileWithHours
 };

@@ -9,6 +9,7 @@ router.post('/post', createActivity);
 
 router.patch('/approve/:id', approveActivity);
 
+
 router.patch('/cancel/:id', cancelActivity);
 
 // GET /activity/get

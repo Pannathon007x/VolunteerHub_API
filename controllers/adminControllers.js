@@ -51,6 +51,13 @@ const approveActivity = async (req, res) => {
       `INSERT INTO activity_approvals (activity_id, admin_id, approval_status, approval_date) 
        VALUES (?, ?, ?, NOW())`,
       [activityId, adminId, 'approved']
+      ['approved', activityId]
+    );
+
+    await queryDb(
+      `INSERT INTO activity_approvals (activity_id, admin_id, approval_status, approval_date) 
+       VALUES (?, ?, ?, NOW())`,
+      [activityId, adminId, 'approved']
     );
 
     res.status(200).json({ message: 'อนุมัติกิจกรรมเรียบร้อยแล้ว' });
@@ -60,6 +67,8 @@ const approveActivity = async (req, res) => {
     res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
   }
 };
+
+
 
 
 
