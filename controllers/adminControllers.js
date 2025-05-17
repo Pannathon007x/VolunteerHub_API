@@ -164,6 +164,71 @@ const createActivity = async (req, res) => {
     }
 };
 
+
+// Edit Activity by Admin
+const editActivity = async (req, res) => {
+  const activityId = parseInt(req.params.id);
+  if (isNaN(activityId)) {
+    return res.status(400).json({ message: 'รหัสกิจกรรมไม่ถูกต้อง' });
+  }
+
+  // รับข้อมูลที่จะอัปเดตจาก body
+  const {
+    title,
+    description,
+    activity_type_id,
+    start_datetime,
+    end_datetime,
+    location,
+    max_participants,
+    hour_value,
+    status
+  } = req.body;
+
+  // สร้างอ็อบเจ็กต์เก็บข้อมูลที่จะอัปเดตเฉพาะที่มีค่าไม่ undefined
+  const fieldsToUpdate = {};
+  if (title !== undefined) fieldsToUpdate.title = title;
+  if (description !== undefined) fieldsToUpdate.description = description;
+  if (activity_type_id !== undefined) fieldsToUpdate.activity_type_id = activity_type_id;
+  if (start_datetime !== undefined) fieldsToUpdate.start_datetime = start_datetime;
+  if (end_datetime !== undefined) fieldsToUpdate.end_datetime = end_datetime;
+  if (location !== undefined) fieldsToUpdate.location = location;
+  if (max_participants !== undefined) fieldsToUpdate.max_participants = max_participants;
+  if (hour_value !== undefined) fieldsToUpdate.hour_value = hour_value;
+  if (status !== undefined) fieldsToUpdate.status = status;
+
+  // ถ้าไม่มีข้อมูลจะอัปเดตเลย ให้แจ้ง error
+  if (Object.keys(fieldsToUpdate).length === 0) {
+    return res.status(400).json({ message: 'ไม่มีข้อมูลสำหรับแก้ไข' });
+  }
+
+  // เตรียม SQL และค่าที่จะใช้
+  const setClauses = [];
+  const values = [];
+  for (const [key, val] of Object.entries(fieldsToUpdate)) {
+    setClauses.push(`${key} = ?`);
+    values.push(val);
+  }
+  values.push(activityId);
+
+  const sql = `UPDATE activities SET ${setClauses.join(', ')} WHERE id = ?`;
+
+  try {
+    // เรียกฐานข้อมูล สมมติใช้ queryDb เป็นฟังก์ชัน promise query
+    const result = await queryDb(sql, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ต้องการแก้ไข' });
+    }
+
+    res.status(200).json({ message: 'แก้ไขกิจกรรมสำเร็จ' });
+  } catch (error) {
+    console.error('Error updating activity:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการแก้ไขกิจกรรม', error: error.message });
+  }
+};
+
+
 // Get All Activities 
 const getAllActivities = async (req, res) => {
   const { status, activity_type_id, title } = req.query;  // แก้ 'titel' เป็น 'title'
@@ -294,6 +359,65 @@ const editStaff = async (req, res) => {
   }
 };
 
+// change role user to Staff function
+const changeRoleToUser = async (req, res) => {
+  const userId = req.query.id;  // ดึงจาก query string
 
-module.exports = { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff, editStaff };
+  if (!userId) {
+    return res.status(400).json({ message: 'กรุณาระบุ id ของผู้ใช้' });
+  }
+
+  try {
+    // Check if the user exists
+    const user = await queryDb('SELECT * FROM users WHERE id = ?', [userId]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ระบุ' });
+    }
+
+    // Update the user's role to 'staff'
+    await queryDb('UPDATE users SET role = ? WHERE id = ?', ['staff', userId]);
+
+    res.status(200).json({ message: 'เปลี่ยนบทบาทผู้ใช้เป็น User เรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการเปลี่ยนบทบาทผู้ใช้:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+// Admin ban and unban 
+const banUser = async (req, res) => {
+  const userId = req.query.id;  // เปลี่ยนจาก req.params.id เป็น req.query.id
+  const action = req.query.action;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'กรุณาระบุ id ของผู้ใช้' });
+  }
+
+  if (!['ban', 'unban'].includes(action)) {
+    return res.status(400).json({ message: 'action ต้องเป็น ban หรือ unban เท่านั้น' });
+  }
+
+  const newStatus = action === 'ban' ? 'banned' : 'active';
+
+  try {
+    const result = await queryDb(
+      'UPDATE users SET user_status = ? WHERE id = ?',
+      [newStatus, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'ไม่พบผู้ใช้ที่ระบุ' });
+    }
+
+    res.status(200).json({ message: `ผู้ใช้ถูก${action === 'ban' ? 'แบน' : 'ปลดแบน'}เรียบร้อยแล้ว` });
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการเปลี่ยนสถานะผู้ใช้:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
+
+
+
+module.exports = { approveActivity, cancelActivity, createActivity, getAllActivities, changeRoleToStaff, showStaff, editStaff, changeRoleToUser, editActivity, banUser };
 

@@ -24,22 +24,6 @@ const queryDb = (query, values) => {
     });
 };
 
-//Get participants of an activity
-const getParticipants = (req, res) => {
-    const { id } = req.params;
-    const activityId = parseInt(id);
-
-    const activity = activities.find(act => act.id === activityId);
-
-    if (!activity) {
-        return res.status(404).json({ message: 'ไม่พบกิจกรรมที่ระบุ' });
-    }
-
-    res.json({
-        activityId: activity.id,
-        participants: activity.participants
-    });
-};
 
 // User join activity
 const joinActivity = async (req, res) => {
@@ -242,7 +226,6 @@ const userGetAllActivities = async (req, res) => {
 
 
 module.exports = {
-    getParticipants,
     joinActivity,
     getCompletedActivities,
     getUserRegisteredActivities,

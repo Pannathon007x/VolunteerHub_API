@@ -57,25 +57,25 @@ const register = async (req, res) => {
 };
 
 
-// Login function
 const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
   console.log(email, password);
 
   try {
-    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ? ', [email, "admin"]);
+    const user = await queryDb('SELECT * FROM users WHERE email = ? AND role = ?', [email, "admin"]);
     if (user.length === 0) {
       return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // ตรวจสอบสถานะ user_status
+    if (user[0].user_status === 'banned') {
+      return res.status(403).json({ message: 'Your account has been banned and cannot login.' });
     }
 
     const isMatch = await bcrypt.compare(password, user[0].password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-
-    // Debug ก่อน sign
-    console.log('JWT_SECRET:', process.env.JWT_SECRET);
-    console.log('JWT_EXPIRES:', process.env.JWT_EXPIRES);
 
     const token = jwt.sign(
       { userId: user[0].id },
@@ -100,6 +100,11 @@ const loginStudent = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // ตรวจสอบสถานะ user_status
+    if (user[0].user_status === 'banned') {
+      return res.status(403).json({ message: 'Your account has been banned and cannot login.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user[0].password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -117,5 +122,6 @@ const loginStudent = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 module.exports = { register, loginAdmin, loginStudent};
