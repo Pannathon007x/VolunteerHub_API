@@ -11,7 +11,7 @@ router.get('/participants/:id', getParticipants);
 
 router.get('/activity/completed',getCompletedActivities);
 
-router.get('/registed/:id',getUserRegisteredActivities);
+router.get('/registed',getUserRegisteredActivities);
 
 router.get('/fillterActivity', userGetAllActivities)
 

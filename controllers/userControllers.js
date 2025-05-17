@@ -144,8 +144,9 @@ const getCompletedActivities = async (req, res) => {
   }
 };
 
+// ฟังก์ชันดึงกิจกรรมที่ผู้ใช้ลงทะเบียนไว้
 const getUserRegisteredActivities = async (req, res) => {
-  const userId = parseInt(req.params.id);
+  const userId = parseInt(req.query.id);  // เปลี่ยนเป็น req.query.id
 
   if (!userId || isNaN(userId)) {
     return res.status(400).json({ message: 'ไม่พบรหัสผู้ใช้' });
@@ -188,6 +189,7 @@ const getUserRegisteredActivities = async (req, res) => {
     });
   }
 };
+
 
 const userGetAllActivities = async (req, res) => {
   const { activity_type_id, title } = req.query;  // status เอาออกเพราะจะบังคับเป็น completed
