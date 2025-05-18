@@ -49,7 +49,7 @@ const register = async (req, res) => {
       [student_id, hashedPassword, first_name, last_name, email, faculty, department, role]
     );
 
-    res.status(201).json({ message: 'User registered successfully', role });
+    res.status(201).json({ success: true, message: 'User registered successfully', role });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

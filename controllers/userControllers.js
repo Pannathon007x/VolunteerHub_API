@@ -27,10 +27,20 @@ const queryDb = (query, values) => {
 
 // User join activity
 const joinActivity = async (req, res) => {
-    const { id } = req.params;
-    const { userId, userName } = req.body;
+    // รับ userId และ id (activityId) จาก path
+    const { userId, activityId } = req.params;
+    console.log("userId:", userId, "activityId:", activityId);
+    const userIdNum = parseInt(userId);
+    const activityIdNum = parseInt(activityId);
 
-    const activityId = parseInt(id);
+    // ตรวจสอบว่า id และ userId เป็นตัวเลขหรือไม่
+    if (isNaN(activityId) || isNaN(userIdNum)) {
+        return res.status(400).json({ status: 'ERROR', message: 'userId หรือ activityId ไม่ถูกต้อง' });
+    }
+
+    // log ให้ถูกต้อง
+    console.log("userId:", userIdNum);
+    console.log("activityId:", activityId);
 
     try {
         // 1. ตรวจสอบว่ากิจกรรมมีอยู่จริงหรือไม่
@@ -40,56 +50,55 @@ const joinActivity = async (req, res) => {
         );
 
         if (activityRows.length === 0) {
-            return res.status(404).json({ stasus:'ERROR',message: 'ไม่พบกิจกรรมที่ระบุ' });
+            return res.status(404).json({ status:'ERROR', message: 'ไม่พบกิจกรรมที่ระบุ' });
         }
         const activity = activityRows[0];
 
         // 2. ตรวจสอบสถานะกิจกรรม ให้ลงได้เฉพาะ status = 'approved'
         if (activity.status !== 'approved') {
-            return res.status(400).json({ stasus:'ERROR', message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
+            return res.status(400).json({ status:'ERROR', message: 'ไม่สามารถสมัครกิจกรรมที่ยังไม่เสร็จสมบูรณ์ได้' });
         }
 
         // 3. ตรวจสอบว่าผู้ใช้สมัครไปแล้วหรือยัง
         const participantRows = await queryDb(
             'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
-            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
-            [activityId, userId]
+            [activityId, userIdNum]
         );
 
         if (participantRows.length > 0) {
-            return res.status(400).json({ stasus:'ERROR',message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
+            return res.status(400).json({ status:'ERROR', message: 'คุณสมัครเข้าร่วมกิจกรรมนี้ไปแล้ว' });
         }
 
         // 4. ตรวจสอบจำนวนผู้เข้าร่วม
         const participantsCountRows = await queryDb(
-            'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             'SELECT COUNT(*) AS count FROM activity_registrations WHERE activity_id = ?',
             [activityId]
         );
 
         const participantsCount = participantsCountRows[0].count;
         if (participantsCount >= activity.max_participants) {
-            return res.status(400).json({ stasus:'ERROR', message: 'กิจกรรมเต็มแล้ว' });
+            return res.status(400).json({ status:'ERROR', message: 'กิจกรรมเต็มแล้ว' });
         }
 
         // 5. เพิ่มข้อมูลผู้เข้าร่วมใหม่
         await queryDb(
-            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
-            'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
-            [activityId, userId, userName]
+          'INSERT INTO activity_registrations (activity_id, user_id) VALUES (?, ?)',
+          [activityId, userIdNum]
         );
 
         res.status(200).json({
-            stasus:'SUCCESS',message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
+            status:'SUCCESS',
+            message: 'สมัครเข้าร่วมกิจกรรมสำเร็จ',
             activityId: activity.id,
             participantsCount: participantsCount + 1
         });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
+        res.status(500).json({ status:'ERROR', message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
     }
 };
+
 
 const getCompletedActivities = async (req, res) => {
   try {
@@ -280,7 +289,16 @@ const getProfileWithHours = async (req, res) => {
   }
 };
 
-
+const getActivityTypes = async (req, res) => {
+  try {
+    const rows = await queryDb('SELECT id, name, description FROM activity_types ORDER BY id ASC');
+    // ส่งแค่ array rows ตรง ๆ ไม่ต้องห่อ data อีกชั้น
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error("Error fetching activity types:", error);
+    res.status(500).json({ status: "ERROR", message: "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์" });
+  }
+};
 
 
 module.exports = {
@@ -288,5 +306,6 @@ module.exports = {
     getCompletedActivities,
     getUserRegisteredActivities,
     userGetAllActivities,
-    getProfileWithHours
+    getProfileWithHours,
+    getActivityTypes
 };
