@@ -139,7 +139,7 @@ const getCompletedActivities = async (req, res) => {
 
 // ฟังก์ชันดึงกิจกรรมที่ผู้ใช้ลงทะเบียนไว้
 const getUserRegisteredActivities = async (req, res) => {
-  const userId = parseInt(req.query.id);  // เปลี่ยนเป็น req.query.id
+  const userId = parseInt(req.query.id);
 
   if (!userId || isNaN(userId)) {
     return res.status(400).json({ message: 'ไม่พบรหัสผู้ใช้' });
@@ -170,6 +170,7 @@ const getUserRegisteredActivities = async (req, res) => {
       [userId]
     );
 
+    // *** ต้องมี return ตรงนี้ ***
     return res.status(200).json({
       message: 'ดึงกิจกรรมที่ลงทะเบียนไว้สำเร็จ',
       activities: rows,
@@ -300,6 +301,44 @@ const getActivityTypes = async (req, res) => {
   }
 };
 
+const cancelActivityRegistration = async (req, res) => {
+    const { userId, activityId } = req.params;
+    const userIdNum = parseInt(userId);
+    const activityIdNum = parseInt(activityId);
+
+    // ตรวจสอบว่า id และ userId เป็นตัวเลขหรือไม่
+    if (isNaN(activityIdNum) || isNaN(userIdNum)) {
+        return res.status(400).json({ status: 'ERROR', message: 'userId หรือ activityId ไม่ถูกต้อง' });
+    }
+
+    try {
+        // ตรวจสอบว่ามีการลงทะเบียนอยู่จริงหรือไม่
+        const registrationRows = await queryDb(
+            'SELECT * FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
+            [activityIdNum, userIdNum]
+        );
+
+        if (registrationRows.length === 0) {
+            return res.status(404).json({ status: 'ERROR', message: 'ไม่พบข้อมูลการลงทะเบียนกิจกรรมนี้' });
+        }
+
+        // ลบข้อมูลการลงทะเบียน
+        await queryDb(
+            'DELETE FROM activity_registrations WHERE activity_id = ? AND user_id = ?',
+            [activityIdNum, userIdNum]
+        );
+
+        res.status(200).json({
+            status: 'SUCCESS',
+            message: 'ยกเลิกการเข้าร่วมกิจกรรมสำเร็จ',
+            activityId: activityIdNum,
+            userId: userIdNum
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ status: 'ERROR', message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
+    }
+};
 
 module.exports = {
     joinActivity,
@@ -307,5 +346,6 @@ module.exports = {
     getUserRegisteredActivities,
     userGetAllActivities,
     getProfileWithHours,
+    cancelActivityRegistration,
     getActivityTypes
 };
