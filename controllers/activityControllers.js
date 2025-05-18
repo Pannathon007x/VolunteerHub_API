@@ -24,13 +24,12 @@ const queryDb = (query, values) => {
 
 // Get All Activities (Filter + Pagination)
 const getAllActivities = async (req, res) => {
-  const { page = 1, limit = 10, status, activity_type_id } = req.query;
+  const { page = 1, limit = 10, status, activity_type_id, search } = req.query; // เพิ่ม search
   const pageNum = parseInt(page);
   const limitNum = parseInt(limit);
   const offset = (pageNum - 1) * limitNum;
 
   try {
-    // เงื่อนไข where เดิม ๆ
     let whereClauses = [];
     let values = [];
     if (status) {
@@ -41,6 +40,11 @@ const getAllActivities = async (req, res) => {
       whereClauses.push('a.activity_type_id = ?');
       values.push(activity_type_id);
     }
+    if (search) {
+      whereClauses.push('a.title LIKE ?');
+      values.push(`%${search}%`);
+    }
+
     const whereSql = whereClauses.length
       ? 'WHERE ' + whereClauses.join(' AND ')
       : '';
@@ -54,14 +58,11 @@ const getAllActivities = async (req, res) => {
     );
     const total = countResult[0].total;
 
-    // ดึงข้อมูล พร้อมชื่อประเภทกิจกรรม (activity_types.name) มา alias ว่า activity_type_name
+    // ดึงข้อมูล
     const activities = await queryDb(
-      `SELECT
-         a.*,
-         at.name AS activity_type_name
+      `SELECT a.*, at.name AS activity_type_name
        FROM activities a
-       JOIN activity_types at
-         ON a.activity_type_id = at.id
+       JOIN activity_types at ON a.activity_type_id = at.id
        ${whereSql}
        ORDER BY a.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -79,6 +80,7 @@ const getAllActivities = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 // const getAllActivities = async (req, res) => {
 //     const { page = 1, limit = 10, status, activity_type_id } = req.query;
 
@@ -158,7 +160,7 @@ const closeActivity = async (req, res) => {
     // 1. อัปเดตสถานะกิจกรรมเป็น 'rejected' (ปิดกิจกรรม)
     await queryDb(
       `UPDATE activities
-         SET status = 'rejected'
+         SET status = 'completed'
          WHERE id = ?`,
       [activityId]
     );
